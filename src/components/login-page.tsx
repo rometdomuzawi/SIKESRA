@@ -165,7 +165,7 @@ export function LoginPage() {
             </CardContent>
           </Card>
           <p className="text-center text-xs text-muted-foreground mt-6">
-            © 2026 SIKESRA — Perumahan Griya Asri. All rights reserved.
+            © 2026 SIKESRA — Perumahan PT & MTS. All rights reserved.
           </p>
         </div>
       </div>
