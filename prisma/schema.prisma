@@ -1,0 +1,212 @@
+// SIKESRA — Sistem Informasi Keuangan & Sosial Perumahan
+// Schema Prisma - kompatibel SQLite (dev) dan PostgreSQL/Supabase (production)
+//
+// Cara switch ke PostgreSQL untuk deploy Vercel + Supabase:
+// 1. Ganti provider di bawah dari "sqlite" ke "postgresql"
+// 2. Set DATABASE_URL di .env ke connection string Supabase
+// 3. Jalankan: bun run db:push (untuk create tabel)
+// 4. Jalankan: bun run scripts/seed.ts (untuk data demo)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // DEV: sqlite | PRODUCTION: postgresql
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== USER & AUTH =====================
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(WARGA)
+  phone     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  warga     Warga?
+  kas       Kas[]       @relation("KasBendahara")
+  notif     Notifikasi[] @relation("NotifSender")
+}
+
+enum Role {
+  ADMIN
+  BENDAHARA
+  KETUA
+  WARGA
+}
+
+// ===================== WARGA & RUMAH =====================
+model Warga {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  nik       String   @unique
+  nama      String
+  telepon   String?
+  alamat    String?
+  pekerjaan String?
+  rumahId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rumah     Rumah?   @relation(fields: [rumahId], references: [id])
+  sampah    UangSampah[]
+  sosial    UangSosial[]
+  kurban    TabunganKurban[]
+  riwayat   RiwayatPembayaran[]
+  notif     Notifikasi[]
+
+  @@index([rumahId])
+}
+
+model Rumah {
+  id         String   @id @default(cuid())
+  nomor      String   @unique
+  blok       String
+  alamat     String
+  tipe       String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  warga      Warga[]
+}
+
+// ===================== TRANSAKSI KEUANGAN =====================
+// Uang Sampah - iuran bulanan pengelolaan sampah
+model UangSampah {
+  id           String        @id @default(cuid())
+  wargaId      String
+  bulan        Int           // 1-12
+  tahun        Int
+  jumlah       Float
+  status       PaymentStatus @default(BELUM_BAYAR)
+  tanggalBayar DateTime?
+  metode       String?
+  keterangan   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  warga        Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
+
+  @@unique([wargaId, bulan, tahun])
+  @@index([bulan, tahun, status])
+}
+
+// Uang Sosial - iuran untuk acara sosial perumahan
+model UangSosial {
+  id           String        @id @default(cuid())
+  wargaId      String
+  bulan        Int
+  tahun        Int
+  jumlah       Float
+  status       PaymentStatus @default(BELUM_BAYAR)
+  tanggalBayar DateTime?
+  metode       String?
+  keterangan   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  warga        Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
+
+  @@unique([wargaId, bulan, tahun])
+  @@index([bulan, tahun, status])
+}
+
+// Tabungan Kurban - tabungan rutin untuk kurban
+model TabunganKurban {
+  id           String        @id @default(cuid())
+  wargaId      String
+  bulan        Int
+  tahun        Int
+  jumlah       Float
+  status       PaymentStatus @default(BELUM_BAYAR)
+  tanggalBayar DateTime?
+  metode       String?
+  keterangan   String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  warga        Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
+
+  @@unique([wargaId, bulan, tahun])
+  @@index([bulan, tahun, status])
+}
+
+// Kas umum (masuk/keluar)
+model Kas {
+  id          String      @id @default(cuid())
+  jenis       KasJenis    // MASUK | KELUAR
+  kategori    String
+  jumlah      Float
+  keterangan  String?
+  tanggal     DateTime    @default(now())
+  bendaharaId String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  bendahara   User @relation("KasBendahara", fields: [bendaharaId], references: [id])
+
+  @@index([jenis, tanggal])
+  @@index([kategori])
+}
+
+enum PaymentStatus {
+  LUNAS
+  BELUM_BAYAR
+}
+
+enum KasJenis {
+  MASUK
+  KELUAR
+}
+
+// ===================== RIWAYAT PEMBAYARAN =====================
+model RiwayatPembayaran {
+  id        String   @id @default(cuid())
+  wargaId   String
+  jenis     String   // SAMPAH | SOSIAL | KURBAN
+  bulan     Int
+  tahun     Int
+  jumlah    Float
+  tanggal   DateTime @default(now())
+  metode    String?
+  keterangan String?
+  createdAt DateTime @default(now())
+
+  warga     Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
+
+  @@index([wargaId, jenis, tahun])
+  @@index([tanggal])
+}
+
+// ===================== NOTIFIKASI WHATSAPP =====================
+model Notifikasi {
+  id         String   @id @default(cuid())
+  wargaId    String
+  senderId   String?
+  jenis      String   // SAMPAH | SOSIAL | KURBAN | UMUM
+  pesan      String
+  status     String   @default("PENDING") // PENDING | TERKIRIM | GAGAL
+  tanggalKirim DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  warga      Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
+  sender     User? @relation("NotifSender", fields: [senderId], references: [id])
+
+  @@index([status, tanggalKirim])
+  @@index([wargaId])
+}
+
+// ===================== PENGATURAN =====================
+model Pengaturan {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
