@@ -13,7 +13,7 @@ generator client {
 
 datasource db {
   // DEV: sqlite | PRODUCTION: postgresql
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -58,7 +58,6 @@ model Warga {
   rumah     Rumah?   @relation(fields: [rumahId], references: [id])
   sampah    UangSampah[]
   sosial    UangSosial[]
-  kurban    TabunganKurban[]
   riwayat   RiwayatPembayaran[]
   notif     Notifikasi[]
 
@@ -118,26 +117,6 @@ model UangSosial {
   @@index([bulan, tahun, status])
 }
 
-// Tabungan Kurban - tabungan rutin untuk kurban
-model TabunganKurban {
-  id           String        @id @default(cuid())
-  wargaId      String
-  bulan        Int
-  tahun        Int
-  jumlah       Float
-  status       PaymentStatus @default(BELUM_BAYAR)
-  tanggalBayar DateTime?
-  metode       String?
-  keterangan   String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  warga        Warga @relation(fields: [wargaId], references: [id], onDelete: Cascade)
-
-  @@unique([wargaId, bulan, tahun])
-  @@index([bulan, tahun, status])
-}
-
 // Kas umum (masuk/keluar)
 model Kas {
   id          String      @id @default(cuid())
@@ -170,7 +149,7 @@ enum KasJenis {
 model RiwayatPembayaran {
   id        String   @id @default(cuid())
   wargaId   String
-  jenis     String   // SAMPAH | SOSIAL | KURBAN
+  jenis     String   // SAMPAH | SOSIAL
   bulan     Int
   tahun     Int
   jumlah    Float
@@ -190,9 +169,13 @@ model Notifikasi {
   id         String   @id @default(cuid())
   wargaId    String
   senderId   String?
-  jenis      String   // SAMPAH | SOSIAL | KURBAN | UMUM
+  jenis      String   // SAMPAH | SOSIAL | UMUM
   pesan      String
-  status     String   @default("PENDING") // PENDING | TERKIRIM | GAGAL
+  status     String   @default("PENDING") // PENDING | TERKIRIM | GAGAL | DELIVERED | READ
+  providerId String?  // ID pesan dari Fonnte/Twilio (untuk webhook matching)
+  provider   String?  // fonnte | twilio | manual
+  attempts   Int      @default(0)
+  errorMessage String?
   tanggalKirim DateTime @default(now())
   createdAt  DateTime @default(now())
 
@@ -201,6 +184,7 @@ model Notifikasi {
 
   @@index([status, tanggalKirim])
   @@index([wargaId])
+  @@index([providerId])
 }
 
 // ===================== PENGATURAN =====================

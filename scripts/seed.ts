@@ -13,7 +13,6 @@ async function main() {
   await prisma.kas.deleteMany()
   await prisma.uangSampah.deleteMany()
   await prisma.uangSosial.deleteMany()
-  await prisma.tabunganKurban.deleteMany()
   await prisma.warga.deleteMany()
   await prisma.rumah.deleteMany()
   await prisma.user.deleteMany()
@@ -152,29 +151,6 @@ async function main() {
     }
   }
 
-  // === TABUNGAN KURBAN ===
-  const jumlahKurban = 100000
-  for (const warga of wargaList) {
-    for (let i = 0; i < 3; i++) {
-      const b = bulan - i <= 0 ? bulan - i + 12 : bulan - i
-      const t = bulan - i <= 0 ? tahun - 1 : tahun
-      const isLunas = i > 0 || Math.random() > 0.6
-      await prisma.tabunganKurban.create({
-        data: {
-          wargaId: warga.id,
-          bulan: b,
-          tahun: t,
-          jumlah: jumlahKurban,
-          status: isLunas ? PaymentStatus.LUNAS : PaymentStatus.BELUM_BAYAR,
-          tanggalBayar: isLunas ? new Date(t, b - 1, Math.floor(Math.random() * 28) + 1) : null,
-          metode: isLunas ? 'TUNAI' : null,
-        },
-      })
-    }
-  }
-
-  console.log('✓ Created uang sampah, sosial, kurban for 3 months')
-
   // === KAS ===
   const kategoriMasuk = ['Iuran Warga', 'Donasi', 'Lain-lain']
   const kategoriKeluar = ['Pembelian', 'Perbaikan', 'Honor', 'Konsumsi', 'Lain-lain']
@@ -229,20 +205,6 @@ async function main() {
       },
     })
   }
-  const lunasKurban = await prisma.tabunganKurban.findMany({ where: { status: PaymentStatus.LUNAS } })
-  for (const p of lunasKurban) {
-    await prisma.riwayatPembayaran.create({
-      data: {
-        wargaId: p.wargaId,
-        jenis: 'KURBAN',
-        bulan: p.bulan,
-        tahun: p.tahun,
-        jumlah: p.jumlah,
-        tanggal: p.tanggalBayar || new Date(),
-        metode: p.metode,
-      },
-    })
-  }
   console.log('✓ Synced riwayat pembayaran')
 
   // === PENGATURAN ===
@@ -252,7 +214,6 @@ async function main() {
       { key: 'ALAMAT_PERUMAHAN', value: 'Jl. Melati No. 1, Kota Sentosa' },
       { key: 'IURAN_SAMPAH', value: '30000' },
       { key: 'IURAN_SOSIAL', value: '50000' },
-      { key: 'IURAN_KURBAN', value: '100000' },
       { key: 'KETUA_KETUA', value: ketua.name },
       { key: 'KETUA_BENDAHARA', value: bendahara.name },
     ],
