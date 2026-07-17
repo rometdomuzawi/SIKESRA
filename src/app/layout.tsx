@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "SIKESRA - Sistem Informasi Keuangan & Sosial Perumahan",
-  description: "Aplikasi manajemen keuangan dan sosial perumahan: iuran sampah, sosial, kurban, kas, laporan, dan notifikasi WhatsApp otomatis.",
-  keywords: ["perumahan", "keuangan", "iuran", "sampah", "kurban", "kas", "laporan"],
+  description: "Aplikasi manajemen keuangan dan sosial perumahan: iuran sampah, sosial, kas, laporan, dan notifikasi WhatsApp otomatis.",
+  keywords: ["perumahan", "keuangan", "iuran", "sampah", "kas", "laporan"],
   authors: [{ name: "SIKESRA Team" }],
 };
 

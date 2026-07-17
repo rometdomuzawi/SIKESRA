@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, Users, Home, Trash2, Heart, Coins,
+  LayoutDashboard, Users, Home, Trash2, Heart,
   Wallet, FileText, History, MessageCircle, UserCog, Settings, User,
   type LucideIcon,
 } from 'lucide-react'
@@ -46,13 +46,6 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'sosial',
     label: 'Uang Sosial',
     icon: Heart,
-    roles: ['ADMIN', 'BENDAHARA', 'KETUA', 'WARGA'],
-    group: 'iuran',
-  },
-  {
-    key: 'kurban',
-    label: 'Tabungan Kurban',
-    icon: Coins,
     roles: ['ADMIN', 'BENDAHARA', 'KETUA', 'WARGA'],
     group: 'iuran',
   },

@@ -60,7 +60,6 @@ export function RiwayatView() {
                   <SelectItem value="all">Semua</SelectItem>
                   <SelectItem value="SAMPAH">Iuran Sampah</SelectItem>
                   <SelectItem value="SOSIAL">Iuran Sosial</SelectItem>
-                  <SelectItem value="KURBAN">Tabungan Kurban</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -140,7 +139,7 @@ export function RiwayatView() {
                       )}
                       <TableCell>
                         <Badge variant="outline" className="text-xs">
-                          {r.jenis === 'SAMPAH' ? 'Sampah' : r.jenis === 'SOSIAL' ? 'Sosial' : 'Kurban'}
+                          {r.jenis === 'SAMPAH' ? 'Sampah' : 'Sosial'}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell text-sm">{NAMA_BULAN_SINGKAT[r.bulan - 1]} {r.tahun}</TableCell>

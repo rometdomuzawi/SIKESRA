@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSession, canManageFinances } from '@/lib/session'
-import { sendWhatsApp, isWhatsAppConfigured, getProviderName } from '@/lib/wa-provider'
+import {
+  sendWhatsApp,
+  isWhatsAppConfigured,
+  getWaConfig,
+  getProviderName,
+} from '@/lib/wa-provider'
 
 /**
  * Kirim SATU notifikasi via WhatsApp provider (manual trigger dari UI).
  * Body: { id: notifikasiId }
- *
- * Setelah terkirim, status notifikasi diupdate jadi TERKIRIM.
  */
 export async function POST(req: NextRequest) {
   const session = await getSession()
@@ -15,9 +18,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
   }
 
-  if (!isWhatsAppConfigured()) {
+  const configured = await isWhatsAppConfigured()
+  if (!configured) {
     return NextResponse.json({
-      error: `WhatsApp provider tidak terkonfigurasi. Set WA_PROVIDER=fonnte atau twilio di environment variable. Saat ini: ${getProviderName()}`,
+      error: 'WhatsApp provider belum dikonfigurasi. Set di menu Pengaturan → WhatsApp.',
     }, { status: 400 })
   }
 
@@ -40,18 +44,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Warga tidak punya nomor telepon' }, { status: 400 })
   }
 
+  const cfg = await getWaConfig()
   const result = await sendWhatsApp(notif.warga.telepon, notif.pesan)
 
   if (result.ok) {
     await db.notifikasi.update({
       where: { id },
-      data: { status: 'TERKIRIM', tanggalKirim: new Date() },
+      data: {
+        status: 'TERKIRIM',
+        tanggalKirim: new Date(),
+        providerId: result.messageId || null,
+        provider: cfg.provider,
+        attempts: { increment: 1 },
+        errorMessage: null,
+      },
     })
-    return NextResponse.json({ ok: true, messageId: result.messageId })
+    return NextResponse.json({
+      ok: true,
+      messageId: result.messageId,
+      provider: getProviderName(cfg),
+    })
   } else {
     await db.notifikasi.update({
       where: { id },
-      data: { status: 'GAGAL' },
+      data: {
+        status: 'GAGAL',
+        errorMessage: result.error,
+        attempts: { increment: 1 },
+      },
     })
     return NextResponse.json({
       ok: false,

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Printer, FileText, Coins, ArrowUpRight, ArrowDownRight } from 'lucide-react'
+import { Printer, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { useSession } from '@/hooks/use-session'
 import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN } from '@/lib/format'
 
@@ -92,7 +92,7 @@ export function LaporanView() {
   )
 }
 
-function WargaLaporan({ data }: { data: { periode: { bulan: number; tahun: number }; warga: { nama: string; nik: string; alamat: string | null; rumah: { blok: string; nomor: string } | null }; items: { sampah: { jumlah: number; status: string } | null; sosial: { jumlah: number; status: string } | null; kurban: { jumlah: number; status: string } | null }; riwayat: Array<{ id: string; jenis: string; bulan: number; tahun: number; jumlah: number; tanggal: string; metode: string | null }>; totalBayar: number } }) {
+function WargaLaporan({ data }: { data: { periode: { bulan: number; tahun: number }; warga: { nama: string; nik: string; alamat: string | null; rumah: { blok: string; nomor: string } | null }; items: { sampah: { jumlah: number; status: string } | null; sosial: { jumlah: number; status: string } | null }; riwayat: Array<{ id: string; jenis: string; bulan: number; tahun: number; jumlah: number; tanggal: string; metode: string | null }>; totalBayar: number } }) {
   const p = data.periode
   const w = data.warga
   const i = data.items
@@ -152,15 +152,6 @@ function WargaLaporan({ data }: { data: { periode: { bulan: number; tahun: numbe
                 ) : <span className="text-muted-foreground">-</span>}
               </TableCell>
             </TableRow>
-            <TableRow>
-              <TableCell className="font-medium">Tabungan Kurban</TableCell>
-              <TableCell className="text-right">{i.kurban ? formatRupiah(i.kurban.jumlah) : '-'}</TableCell>
-              <TableCell className="text-center">
-                {i.kurban ? (
-                  <Badge variant={i.kurban.status === 'LUNAS' ? 'default' : 'destructive'}>{i.kurban.status === 'LUNAS' ? 'Lunas' : 'Belum Bayar'}</Badge>
-                ) : <span className="text-muted-foreground">-</span>}
-              </TableCell>
-            </TableRow>
             <TableRow className="border-t-2">
               <TableCell className="font-bold">Total Dibayar</TableCell>
               <TableCell className="text-right font-bold text-emerald-600">{formatRupiah(data.totalBayar)}</TableCell>
@@ -185,7 +176,7 @@ function WargaLaporan({ data }: { data: { periode: { bulan: number; tahun: numbe
                 {data.riwayat.map((r) => (
                   <TableRow key={r.id}>
                     <TableCell className="text-sm">{formatTanggal(r.tanggal)}</TableCell>
-                    <TableCell className="text-sm">{r.jenis === 'SAMPAH' ? 'Iuran Sampah' : r.jenis === 'SOSIAL' ? 'Iuran Sosial' : 'Tabungan Kurban'}</TableCell>
+                    <TableCell className="text-sm">{r.jenis === 'SAMPAH' ? 'Iuran Sampah' : 'Iuran Sosial'}</TableCell>
                     <TableCell className="text-sm">{r.metode || '-'}</TableCell>
                     <TableCell className="text-right text-sm font-semibold">{formatRupiah(r.jumlah)}</TableCell>
                   </TableRow>
@@ -210,7 +201,7 @@ function WargaLaporan({ data }: { data: { periode: { bulan: number; tahun: numbe
   )
 }
 
-function FullLaporan({ data, bulan, tahun }: { data: { periode: { bulan: number; tahun: number }; totalWarga: number; sampah: { items: Array<{ jumlah: number; status: string; warga: { nama: string; nik: string; rumah: { blok: string; nomor: string } | null } }>; total: number; lunas: number; belumBayar: number }; sosial: { items: Array<{ jumlah: number; status: string; warga: { nama: string; nik: string; rumah: { blok: string; nomor: string } | null } }>; total: number; lunas: number; belumBayar: number }; kurban: { items: Array<{ jumlah: number; status: string; warga: { nama: string; nik: string; rumah: { blok: string; nomor: string } | null } }>; total: number; lunas: number; belumBayar: number }; kas: { items: Array<{ id: string; jenis: string; kategori: string; jumlah: number; keterangan: string | null; tanggal: string; bendahara: { name: string } }>; masuk: number; keluar: number; saldoBulan: number; saldoTotal: number }; totalPemasukan: number; totalPengeluaran: number }; bulan: number; tahun: number }) {
+function FullLaporan({ data, bulan, tahun }: { data: { periode: { bulan: number; tahun: number }; totalWarga: number; sampah: { items: Array<{ jumlah: number; status: string; warga: { nama: string; nik: string; rumah: { blok: string; nomor: string } | null } }>; total: number; lunas: number; belumBayar: number }; sosial: { items: Array<{ jumlah: number; status: string; warga: { nama: string; nik: string; rumah: { blok: string; nomor: string } | null } }>; total: number; lunas: number; belumBayar: number }; kas: { items: Array<{ id: string; jenis: string; kategori: string; jumlah: number; keterangan: string | null; tanggal: string; bendahara: { name: string } }>; masuk: number; keluar: number; saldoBulan: number; saldoTotal: number }; totalPemasukan: number; totalPengeluaran: number }; bulan: number; tahun: number }) {
   return (
     <div className="space-y-4 print-page">
       <Card>
@@ -253,15 +244,9 @@ function FullLaporan({ data, bulan, tahun }: { data: { periode: { bulan: number;
                 <TableCell className="text-center text-rose-600 font-medium">{data.sosial.belumBayar}</TableCell>
                 <TableCell className="text-right font-bold">{formatRupiah(data.sosial.total)}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Tabungan Kurban</TableCell>
-                <TableCell className="text-center text-emerald-600 font-medium">{data.kurban.lunas}</TableCell>
-                <TableCell className="text-center text-rose-600 font-medium">{data.kurban.belumBayar}</TableCell>
-                <TableCell className="text-right font-bold">{formatRupiah(data.kurban.total)}</TableCell>
-              </TableRow>
               <TableRow className="border-t-2">
                 <TableCell className="font-bold" colSpan={3}>Total Iuran</TableCell>
-                <TableCell className="text-right font-bold text-emerald-700">{formatRupiah(data.sampah.total + data.sosial.total + data.kurban.total)}</TableCell>
+                <TableCell className="text-right font-bold text-emerald-700">{formatRupiah(data.sampah.total + data.sosial.total)}</TableCell>
               </TableRow>
             </TableBody>
           </Table>
@@ -323,15 +308,13 @@ function FullLaporan({ data, bulan, tahun }: { data: { periode: { bulan: number;
                 <TableHead>Rumah</TableHead>
                 <TableHead className="text-center">Sampah</TableHead>
                 <TableHead className="text-center">Sosial</TableHead>
-                <TableHead className="text-center">Kurban</TableHead>
                 <TableHead className="text-right">Total Bayar</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.sampah.items.map((s, idx) => {
                 const sos = data.sosial.items.find((x) => x.warga.nik === s.warga.nik)
-                const krb = data.kurban.items.find((x) => x.warga.nik === s.warga.nik)
-                const total = (s.status === 'LUNAS' ? s.jumlah : 0) + (sos?.status === 'LUNAS' ? sos.jumlah : 0) + (krb?.status === 'LUNAS' ? krb.jumlah : 0)
+                const total = (s.status === 'LUNAS' ? s.jumlah : 0) + (sos?.status === 'LUNAS' ? sos.jumlah : 0)
                 return (
                   <TableRow key={s.warga.nik}>
                     <TableCell className="text-sm">{idx + 1}</TableCell>
@@ -344,9 +327,6 @@ function FullLaporan({ data, bulan, tahun }: { data: { periode: { bulan: number;
                     </TableCell>
                     <TableCell className="text-center">
                       {sos ? <Badge variant={sos.status === 'LUNAS' ? 'default' : 'destructive'} className="text-xs">{sos.status === 'LUNAS' ? '✓' : '✗'}</Badge> : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {krb ? <Badge variant={krb.status === 'LUNAS' ? 'default' : 'destructive'} className="text-xs">{krb.status === 'LUNAS' ? '✓' : '✗'}</Badge> : '-'}
                     </TableCell>
                     <TableCell className="text-right font-semibold text-sm">{formatRupiah(total)}</TableCell>
                   </TableRow>

@@ -63,7 +63,7 @@ export function LoginPage() {
               Kelola Keuangan & Sosial Perumahan Jadi Lebih Mudah
             </h2>
             <p className="text-primary-foreground/80 leading-relaxed">
-              Pantau iuran sampah, sosial, tabungan kurban, dan kas perumahan dalam satu dashboard.
+              Pantau iuran sampah, sosial, dan kas perumahan dalam satu dashboard.
               Notifikasi WhatsApp otomatis, laporan bulanan, dan cetak PDF siap pakai.
             </p>
           </div>
@@ -165,7 +165,7 @@ export function LoginPage() {
             </CardContent>
           </Card>
           <p className="text-center text-xs text-muted-foreground mt-6">
-            © 2026 SIKESRA — Perumahan PT & MTS. All rights reserved.
+            © 2026 SIKESRA — Perumahan Griya Asri. All rights reserved.
           </p>
         </div>
       </div>

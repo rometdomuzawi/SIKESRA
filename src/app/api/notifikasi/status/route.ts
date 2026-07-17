@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
-import { isWhatsAppConfigured, getProviderName } from '@/lib/wa-provider'
+import {
+  isWhatsAppConfigured,
+  getWaConfig,
+  getProviderName,
+} from '@/lib/wa-provider'
 import { getSession } from '@/lib/session'
 
 /**
@@ -9,8 +13,13 @@ export async function GET() {
   const session = await getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const configured = await isWhatsAppConfigured()
+  const cfg = await getWaConfig()
+
   return NextResponse.json({
-    configured: isWhatsAppConfigured(),
-    provider: getProviderName(),
+    configured,
+    provider: getProviderName(cfg),
+    fonnteTokenSet: !!cfg.fonnteToken,
+    twilioConfigured: !!(cfg.twilioSid && cfg.twilioToken),
   })
 }

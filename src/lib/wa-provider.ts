@@ -5,18 +5,14 @@
  * 1. Fonnte (https://fonnte.com) — Indonesia, murah, mudah
  * 2. Twilio WhatsApp API (https://twilio.com/whatsapp) — international
  *
- * Set environment variable:
- *   WA_PROVIDER=fonnte
- *   FONNTE_TOKEN=xxxx
- *   # atau
- *   WA_PROVIDER=twilio
- *   TWILIO_ACCOUNT_SID=ACxxxx
- *   TWILIO_AUTH_TOKEN=xxxx
- *   TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+ * Konfigurasi dibaca dengan urutan:
+ * 1. Database (tabel Pengaturan) — via UI Pengaturan
+ * 2. Environment variable — fallback untuk deployment
  *
- * Jika WA_PROVIDER tidak diset, fallback ke "manual" —
- *   return link wa.me saja (mode demo).
+ * Jika tidak ada yang ter-set, return mode "manual" — wa.me link saja.
  */
+
+import { db } from '@/lib/db'
 
 export interface SendResult {
   ok: boolean
@@ -25,22 +21,106 @@ export interface SendResult {
   raw?: unknown
 }
 
+export interface WaConfig {
+  provider: string // 'fonnte' | 'twilio' | 'manual'
+  fonnteToken?: string
+  twilioSid?: string
+  twilioToken?: string
+  twilioFrom?: string
+  // Template pesan (disimpan di DB)
+  templateSampah?: string
+  templateSosial?: string
+  templateUmum?: string
+}
+
+let cachedConfig: WaConfig | null = null
+let cacheExpiry = 0
+const CACHE_TTL = 30_000 // 30 detik
+
+/**
+ * Ambil konfigurasi WhatsApp dari DB + env.
+ * Cache 30 detik untuk performa.
+ */
+export async function getWaConfig(): Promise<WaConfig> {
+  if (cachedConfig && Date.now() < cacheExpiry) {
+    return cachedConfig
+  }
+
+  // Baca dari DB
+  const settings = await db.pengaturan.findMany({
+    where: {
+      key: {
+        in: [
+          'WA_PROVIDER',
+          'FONNTE_TOKEN',
+          'TWILIO_SID',
+          'TWILIO_TOKEN',
+          'TWILIO_FROM',
+          'TPL_SAMPAH',
+          'TPL_SOSIAL',
+          'TPL_UMUM',
+        ],
+      },
+    },
+  })
+  const map: Record<string, string> = {}
+  for (const s of settings) map[s.key] = s.value
+
+  const config: WaConfig = {
+    provider:
+      map.WA_PROVIDER ||
+      process.env.WA_PROVIDER?.toLowerCase() ||
+      'manual',
+    fonnteToken: map.FONNTE_TOKEN || process.env.FONNTE_TOKEN,
+    twilioSid: map.TWILIO_SID || process.env.TWILIO_ACCOUNT_SID,
+    twilioToken: map.TWILIO_TOKEN || process.env.TWILIO_AUTH_TOKEN,
+    twilioFrom: map.TWILIO_FROM || process.env.TWILIO_WHATSAPP_FROM,
+    templateSampah: map.TPL_SAMPAH || DEFAULT_TEMPLATES.SAMPAH,
+    templateSosial: map.TPL_SOSIAL || DEFAULT_TEMPLATES.SOSIAL,
+    templateUmum: map.TPL_UMUM || DEFAULT_TEMPLATES.UMUM,
+  }
+
+  cachedConfig = config
+  cacheExpiry = Date.now() + CACHE_TTL
+  return config
+}
+
+/**
+ * Invalidate cache config (setelah update pengaturan).
+ */
+export function invalidateWaConfigCache() {
+  cachedConfig = null
+  cacheExpiry = 0
+}
+
+/**
+ * Cek apakah WhatsApp terkonfigurasi.
+ */
+export async function isWhatsAppConfigured(): Promise<boolean> {
+  const cfg = await getWaConfig()
+  if (cfg.provider === 'fonnte' && cfg.fonnteToken) return true
+  if (cfg.provider === 'twilio' && cfg.twilioSid && cfg.twilioToken) return true
+  return false
+}
+
+/**
+ * Kirim pesan WhatsApp.
+ */
 export async function sendWhatsApp(phone: string, message: string): Promise<SendResult> {
-  const provider = process.env.WA_PROVIDER?.toLowerCase() || 'manual'
+  const cfg = await getWaConfig()
   const normalizedPhone = normalizePhone(phone)
 
-  if (provider === 'fonnte' && process.env.FONNTE_TOKEN) {
-    return sendFonnte(normalizedPhone, message)
+  if (cfg.provider === 'fonnte' && cfg.fonnteToken) {
+    return sendFonnte(normalizedPhone, message, cfg.fonnteToken)
   }
 
-  if (provider === 'twilio' && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
-    return sendTwilio(normalizedPhone, message)
+  if (cfg.provider === 'twilio' && cfg.twilioSid && cfg.twilioToken) {
+    return sendTwilio(normalizedPhone, message, cfg.twilioSid, cfg.twilioToken, cfg.twilioFrom || 'whatsapp:+14155238886')
   }
 
-  // Manual / demo mode: return wa.me link
   return {
     ok: false,
-    error: 'WA_PROVIDER not configured. Set WA_PROVIDER=fonnte or twilio with credentials. Fallback to manual wa.me link.',
+    error: 'WA_PROVIDER not configured. Set via UI Pengaturan or env vars.',
     raw: { waLink: `https://wa.me/${normalizedPhone}?text=${encodeURIComponent(message)}` },
   }
 }
@@ -48,12 +128,12 @@ export async function sendWhatsApp(phone: string, message: string): Promise<Send
 /**
  * Fonnte API — https://docs.fonnte.com
  */
-async function sendFonnte(phone: string, message: string): Promise<SendResult> {
+async function sendFonnte(phone: string, message: string, token: string): Promise<SendResult> {
   try {
     const res = await fetch('https://api.fonnte.com/send', {
       method: 'POST',
       headers: {
-        Authorization: process.env.FONNTE_TOKEN!,
+        Authorization: token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -63,10 +143,19 @@ async function sendFonnte(phone: string, message: string): Promise<SendResult> {
       }),
     })
     const data = await res.json()
+    // Fonnte response: { status: true, id: 'xxx', ... } on success
     if (data.status === true || data.status === 'success') {
-      return { ok: true, messageId: data.id || data.message_id, raw: data }
+      return {
+        ok: true,
+        messageId: data.id || data.message_id || data.msgid,
+        raw: data,
+      }
     }
-    return { ok: false, error: data.reason || data.message || 'Fonnte error', raw: data }
+    return {
+      ok: false,
+      error: data.reason || data.message || 'Fonnte error',
+      raw: data,
+    }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
   }
@@ -75,24 +164,22 @@ async function sendFonnte(phone: string, message: string): Promise<SendResult> {
 /**
  * Twilio WhatsApp API
  */
-async function sendTwilio(phone: string, message: string): Promise<SendResult> {
+async function sendTwilio(
+  phone: string,
+  message: string,
+  sid: string,
+  token: string,
+  from: string
+): Promise<SendResult> {
   try {
-    const sid = process.env.TWILIO_ACCOUNT_SID!
-    const token = process.env.TWILIO_AUTH_TOKEN!
-    const from = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886'
     const to = `whatsapp:+${phone}`
-
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
       method: 'POST',
       headers: {
         Authorization: 'Basic ' + Buffer.from(`${sid}:${token}`).toString('base64'),
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: new URLSearchParams({
-        From: from,
-        To: to,
-        Body: message,
-      }),
+      body: new URLSearchParams({ From: from, To: to, Body: message }),
     })
     const data = await res.json()
     if (res.ok && data.sid) {
@@ -102,6 +189,54 @@ async function sendTwilio(phone: string, message: string): Promise<SendResult> {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
   }
+}
+
+/**
+ * Test koneksi Fonnte — cek device & saldo.
+ * GET https://api.fonnte.com/get-device
+ */
+export async function testFonnteConnection(token: string): Promise<{
+  ok: boolean
+  device?: {
+    name: string
+    status: string // connected | disconnected | connecting
+    quota?: string
+    expired?: string
+  }
+  error?: string
+}> {
+  try {
+    const res = await fetch('https://api.fonnte.com/get-device', {
+      method: 'POST',
+      headers: {
+        Authorization: token,
+        'Content-Type': 'application/json',
+      },
+    })
+    const data = await res.json()
+    if (data.status === true || data.status === 'success') {
+      return {
+        ok: true,
+        device: {
+          name: data.name || data.device_name || 'Device',
+          status: data.status_device || data.connection || 'unknown',
+          quota: data.quota?.toString(),
+          expired: data.expired,
+        },
+      }
+    }
+    return { ok: false, error: data.reason || data.message || 'Token tidak valid' }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Network error' }
+  }
+}
+
+/**
+ * Kirim pesan test ke nomor tertentu.
+ */
+export async function sendTestMessage(phone: string): Promise<SendResult> {
+  const testMsg = `🔔 *Test Notifikasi SIKESRA*\n\nIni adalah pesan test dari Sistem Informasi Keuangan & Sosial Perumahan.\n\nJika Anda menerima pesan ini, berarti konfigurasi WhatsApp otomatis berfungsi dengan baik.\n\nWaktu: ${new Date().toLocaleString('id-ID')}`
+  return sendWhatsApp(phone, testMsg)
 }
 
 function normalizePhone(phone: string): string {
@@ -116,16 +251,38 @@ export function waLink(phone: string, message: string): string {
   return `https://wa.me/${p}?text=${encodeURIComponent(message)}`
 }
 
-/**
- * Cek apakah provider WhatsApp terkonfigurasi
- */
-export function isWhatsAppConfigured(): boolean {
-  const provider = process.env.WA_PROVIDER?.toLowerCase()
-  if (provider === 'fonnte' && process.env.FONNTE_TOKEN) return true
-  if (provider === 'twilio' && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) return true
-  return false
+export function getProviderName(cfg: WaConfig): string {
+  return cfg.provider
 }
 
-export function getProviderName(): string {
-  return process.env.WA_PROVIDER?.toLowerCase() || 'manual'
+/**
+ * Render template pesan dengan variabel.
+ * Variabel yang didukung:
+ *   {{nama}} - nama warga
+ *   {{bulan}} - nama bulan (Januari, Februari, ...)
+ *   {{tahun}} - tahun
+ *   {{jenis}} - jenis iuran (Iuran Sampah, Iuran Sosial)
+ *   {{jumlah}} - jumlah iuran (formatted Rupiah)
+ */
+export function renderTemplate(template: string, vars: Record<string, string | number>): string {
+  let result = template
+  for (const [k, v] of Object.entries(vars)) {
+    result = result.replaceAll(`{{${k}}}`, String(v))
+  }
+  return result
+}
+
+/**
+ * Template default untuk masing-masing jenis iuran.
+ */
+export const DEFAULT_TEMPLATES = {
+  SAMPAH: `Yth. {{nama}},\n\nPengingat pembayaran *Iuran Sampah* periode {{bulan}} {{tahun}} sebesar *{{jumlah}}*.\n\nMohon segera lakukan pembayaran ke Bendahara. Terima kasih.\n- Pengurus Perumahan Griya Asri`,
+  SOSIAL: `Yth. {{nama}},\n\nPengingat pembayaran *Iuran Sosial* periode {{bulan}} {{tahun}} sebesar *{{jumlah}}*.\n\nMohon segera lakukan pembayaran ke Bendahara. Terima kasih.\n- Pengurus Perumahan Griya Asri`,
+  UMUM: `Yth. {{nama}},\n\n{{pesan}}\n\n- Pengurus Perumahan Griya Asri`,
+}
+
+export const NAMA_JENIS: Record<string, string> = {
+  SAMPAH: 'Iuran Sampah',
+  SOSIAL: 'Iuran Sosial',
+  UMUM: 'Notifikasi',
 }

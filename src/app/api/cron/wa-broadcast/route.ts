@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { sendWhatsApp, isWhatsAppConfigured } from '@/lib/wa-provider'
+import {
+  sendWhatsApp,
+  isWhatsAppConfigured,
+  getWaConfig,
+  renderTemplate,
+  NAMA_JENIS,
+  DEFAULT_TEMPLATES,
+} from '@/lib/wa-provider'
 import { PaymentStatus } from '@prisma/client'
+import { namaBulan, formatRupiah } from '@/lib/format'
 
 /**
  * Vercel Cron — kirim pengingat WhatsApp otomatis untuk iuran BELUM_BAYAR
@@ -10,24 +18,16 @@ import { PaymentStatus } from '@prisma/client'
  *   "0 1 * * *"
  *
  * Cron ini akan:
- * 1. Cari semua notifikasi berstatus PENDING
- * 2. Kirim via WhatsApp provider (Fonnte/Twilio)
- * 3. Update status jadi TERKIRIM atau GAGAL
- * 4. Auto-generate notifikasi untuk warga yang belum bayar di bulan berjalan
- *    jika belum ada notifikasi untuk mereka
+ * 1. Auto-generate notifikasi untuk warga yang belum bayar di bulan berjalan
+ *    (gunakan template pesan dari Pengaturan)
+ * 2. Kirim semua notifikasi PENDING via WhatsApp provider (Fonnte/Twilio)
+ * 3. Update status jadi TERKIRIM atau GAGAL dengan error message
+ * 4. Simpan providerId untuk webhook matching
  *
  * Security: gunakan CRON_SECRET env var untuk auth
  */
 
-const NAMA_JENIS: Record<string, string> = {
-  SAMPAH: 'Iuran Sampah',
-  SOSIAL: 'Iuran Sosial',
-  KURBAN: 'Tabungan Kurban',
-  UMUM: 'Notifikasi',
-}
-
 export async function GET(req: NextRequest) {
-  // Auth via secret header atau query
   const authHeader = req.headers.get('authorization')
   const secret = process.env.CRON_SECRET
   const url = new URL(req.url)
@@ -37,22 +37,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!isWhatsAppConfigured()) {
+  const configured = await isWhatsAppConfigured()
+  if (!configured) {
     return NextResponse.json({
       ok: false,
-      error: 'WhatsApp provider tidak terkonfigurasi. Set WA_PROVIDER=fonnte atau twilio dengan credential.',
+      error: 'WhatsApp provider tidak terkonfigurasi. Set di menu Pengaturan → WhatsApp.',
     }, { status: 400 })
   }
 
+  const cfg = await getWaConfig()
   const now = new Date()
   const bulan = now.getMonth() + 1
   const tahun = now.getFullYear()
 
-  console.log(`[CRON] Memulai broadcast WA untuk ${bulan}/${tahun}`)
+  console.log(`[CRON] Memulai broadcast WA (${cfg.provider}) untuk ${bulan}/${tahun}`)
 
-  // 1. Auto-generate notifikasi PENDING untuk warga yang belum bayar bulan ini
-  //    jika belum ada notifikasi untuk jenis/bulan/tahun tersebut
-  const jenisList = ['SAMPAH', 'SOSIAL', 'KURBAN'] as const
+  // 1. Auto-generate notifikasi PENDING untuk warga yang belum bayar
+  const jenisList = ['SAMPAH', 'SOSIAL'] as const
   let autoCreated = 0
 
   for (const jenis of jenisList) {
@@ -68,18 +69,18 @@ export async function GET(req: NextRequest) {
         where: { bulan, tahun, status: PaymentStatus.BELUM_BAYAR },
         select: { wargaId: true, jumlah: true },
       })
-    } else if (jenis === 'KURBAN') {
-      belumbayar = await db.tabunganKurban.findMany({
-        where: { bulan, tahun, status: PaymentStatus.BELUM_BAYAR },
-        select: { wargaId: true, jumlah: true },
-      })
     }
+
+    // Pilih template sesuai jenis
+    const template =
+      jenis === 'SAMPAH' ? (cfg.templateSampah || DEFAULT_TEMPLATES.SAMPAH)
+      : (cfg.templateSosial || DEFAULT_TEMPLATES.SOSIAL)
 
     for (const b of belumbayar) {
       const warga = await db.warga.findUnique({ where: { id: b.wargaId } })
       if (!warga || !warga.telepon) continue
 
-      // Skip jika sudah ada notifikasi PENDING/TERKIRIM untuk kombinasi yang sama hari ini
+      // Skip jika sudah ada notifikasi hari ini untuk kombinasi yang sama
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const existing = await db.notifikasi.findFirst({
         where: {
@@ -90,7 +91,13 @@ export async function GET(req: NextRequest) {
       })
       if (existing) continue
 
-      const pesan = `Yth. ${warga.nama},\n\nPengingat pembayaran ${NAMA_JENIS[jenis]} periode ${bulan}/${tahun} sebesar Rp ${b.jumlah.toLocaleString('id-ID')}.\n\nMohon segera lakukan pembayaran ke Bendahara. Terima kasih.\n- Pengurus Perumahan Griya Asri`
+      const pesan = renderTemplate(template, {
+        nama: warga.nama,
+        bulan: namaBulan(bulan),
+        tahun: tahun.toString(),
+        jenis: NAMA_JENIS[jenis],
+        jumlah: formatRupiah(b.jumlah),
+      })
 
       await db.notifikasi.create({
         data: {
@@ -98,6 +105,7 @@ export async function GET(req: NextRequest) {
           jenis,
           pesan,
           status: 'PENDING',
+          provider: cfg.provider,
         },
       })
       autoCreated++
@@ -106,7 +114,7 @@ export async function GET(req: NextRequest) {
 
   console.log(`[CRON] Auto-created ${autoCreated} notifikasi baru`)
 
-  // 2. Kirim semua notifikasi PENDING (limit 50 per run untuk avoid timeout)
+  // 2. Kirim semua notifikasi PENDING (limit 50 per run)
   const pendingNotifs = await db.notifikasi.findMany({
     where: { status: 'PENDING' },
     include: { warga: { select: { nama: true, telepon: true } } },
@@ -122,10 +130,10 @@ export async function GET(req: NextRequest) {
     if (!n.warga.telepon) {
       await db.notifikasi.update({
         where: { id: n.id },
-        data: { status: 'GAGAL' },
+        data: { status: 'GAGAL', errorMessage: 'No telepon warga kosong', attempts: { increment: 1 } },
       })
       gagal++
-      errors.push({ id: n.id, error: 'No telepon warga kosong' })
+      errors.push({ id: n.id, error: 'No telepon kosong' })
       continue
     }
 
@@ -134,19 +142,29 @@ export async function GET(req: NextRequest) {
     if (result.ok) {
       await db.notifikasi.update({
         where: { id: n.id },
-        data: { status: 'TERKIRIM', tanggalKirim: new Date() },
+        data: {
+          status: 'TERKIRIM',
+          tanggalKirim: new Date(),
+          providerId: result.messageId || null,
+          provider: cfg.provider,
+          attempts: { increment: 1 },
+        },
       })
       terkirim++
     } else {
       await db.notifikasi.update({
         where: { id: n.id },
-        data: { status: 'GAGAL' },
+        data: {
+          status: 'GAGAL',
+          errorMessage: result.error,
+          attempts: { increment: 1 },
+        },
       })
       gagal++
       errors.push({ id: n.id, error: result.error || 'Unknown error' })
     }
 
-    // Rate limit: tunggu 500ms antar pengiriman
+    // Rate limit: 500ms antar pengiriman
     await new Promise((r) => setTimeout(r, 500))
   }
 
@@ -154,11 +172,12 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    provider: cfg.provider,
     periode: { bulan, tahun },
     autoCreated,
     processed: pendingNotifs.length,
     terkirim,
     gagal,
-    errors: errors.slice(0, 10), // limit error log
+    errors: errors.slice(0, 10),
   })
 }

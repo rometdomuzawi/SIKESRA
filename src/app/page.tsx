@@ -13,10 +13,11 @@ import { KasView } from '@/components/views/kas'
 import { LaporanView } from '@/components/views/laporan'
 import { RiwayatView } from '@/components/views/riwayat'
 import { NotifikasiView } from '@/components/views/notifikasi'
-import { UsersView, PengaturanView } from '@/components/views/users-pengaturan'
+import { UsersView } from '@/components/views/users-pengaturan'
+import { PengaturanView } from '@/components/views/pengaturan'
 import { ProfilView } from '@/components/views/profil'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Trash2, Heart, Coins, type LucideIcon } from 'lucide-react'
+import { Trash2, Heart, type LucideIcon } from 'lucide-react'
 
 export default function Home() {
   const { data: session, isLoading } = useSession()
@@ -88,18 +89,6 @@ function renderPage(page: PageKey, role: string) {
           icon={Heart as LucideIcon}
           defaultAmount={50000}
           accentColor="rose"
-        />
-      )
-    case 'kurban':
-      return (
-        <IuranView
-          apiPath="/api/tabungan-kurban"
-          queryKey="tabungan-kurban"
-          title="Tabungan Kurban"
-          description="Tabungan rutin untuk ibadah kurban"
-          icon={Coins as LucideIcon}
-          defaultAmount={100000}
-          accentColor="amber"
         />
       )
     case 'kas':

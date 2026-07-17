@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import {
-  Users, Home, Wallet, TrendingUp, Bell, Trash2, Heart, Coins,
+  Users, Home, Wallet, TrendingUp, Bell, Trash2, Heart,
   ArrowUpRight, ArrowDownRight, MessageCircle, FileText,
 } from 'lucide-react'
 import {
@@ -158,13 +158,11 @@ export function DashboardView() {
               <div className="space-y-3">
                 <Skeleton className="h-14 w-full" />
                 <Skeleton className="h-14 w-full" />
-                <Skeleton className="h-14 w-full" />
               </div>
             ) : (
               <>
                 <PembayaranRow icon={Trash2} label="Iuran Sampah" data={data?.pembayaranBulan?.sampah} color="emerald" onClick={() => setPage('sampah')} />
                 <PembayaranRow icon={Heart} label="Iuran Sosial" data={data?.pembayaranBulan?.sosial} color="rose" onClick={() => setPage('sosial')} />
-                <PembayaranRow icon={Coins} label="Tabungan Kurban" data={data?.pembayaranBulan?.kurban} color="amber" onClick={() => setPage('kurban')} />
               </>
             )}
           </CardContent>
@@ -229,11 +227,10 @@ export function DashboardView() {
   )
 }
 
-function PembayaranRow({ icon: Icon, label, data, color, onClick }: { icon: typeof Trash2; label: string; data?: { lunas: number; total: number }; color: 'emerald' | 'rose' | 'amber'; onClick: () => void }) {
+function PembayaranRow({ icon: Icon, label, data, color, onClick }: { icon: typeof Trash2; label: string; data?: { lunas: number; total: number }; color: 'emerald' | 'rose'; onClick: () => void }) {
   const colorMap = {
     emerald: 'bg-emerald-100 text-emerald-700',
     rose: 'bg-rose-100 text-rose-700',
-    amber: 'bg-amber-100 text-amber-700',
   }
   const pct = data && data.total > 0 ? (data.lunas / data.total) * 100 : 0
   return (
@@ -272,27 +269,100 @@ function WargaDashboard() {
     <div className="space-y-5">
       <PageHeader title={`Halo, ${warga?.nama?.split(' ')[0] || 'Warga'} 👋`} description={periode ? `Periode ${namaBulan(periode.bulan)} ${periode.tahun}` : 'Memuat...'} />
 
-      <Card className="bg-gradient-to-br from-primary to-emerald-700 text-primary-foreground">
-        <CardContent className="p-5 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm text-primary-foreground/80">Total Tabungan Kurban</p>
-            <p className="text-3xl font-bold mt-1">{formatRupiah(data?.totalKurban || 0)}</p>
-            <p className="text-xs text-primary-foreground/70 mt-1">Akumulasi dari semua pembayaran kurban</p>
-          </div>
-          <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center">
-            <Coins className="w-9 h-9" />
-          </div>
-        </CardContent>
-      </Card>
-
       <div>
         <h3 className="font-semibold mb-3">Status Iuran Bulan Ini</h3>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <IuranCard icon={Trash2} label="Iuran Sampah" data={bulanIni?.sampah} defaultAmount={30000} onClick={() => setPage('sampah')} />
           <IuranCard icon={Heart} label="Iuran Sosial" data={bulanIni?.sosial} defaultAmount={50000} onClick={() => setPage('sosial')} />
-          <IuranCard icon={Coins} label="Tabungan Kurban" data={bulanIni?.kurban} defaultAmount={100000} onClick={() => setPage('kurban')} />
         </div>
       </div>
+
+      {/* Saldo Kas + Statistik */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card className="bg-gradient-to-br from-primary to-emerald-700 text-primary-foreground">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-primary-foreground/80">Saldo Kas Perumahan</p>
+              <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center">
+                <Wallet className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold">
+              {isLoading ? '...' : formatRupiah(data?.kas?.saldo ?? 0)}
+            </p>
+            <p className="text-xs text-primary-foreground/70 mt-1">Total saldo keseluruhan</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-muted-foreground">Total Kas Masuk</p>
+              <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <ArrowUpRight className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-emerald-600">
+              {isLoading ? '...' : formatRupiah(data?.kas?.totalMasuk ?? 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Akumulasi pemasukan</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-muted-foreground">Total Kas Keluar</p>
+              <div className="w-9 h-9 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center">
+                <ArrowDownRight className="w-5 h-5" />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-rose-600">
+              {isLoading ? '...' : formatRupiah(data?.kas?.totalKeluar ?? 0)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Akumulasi pengeluaran</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* List Transaksi Kas Terbaru */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Transaksi Kas Terbaru</CardTitle>
+          <CardDescription>5 transaksi terakhir perumahan</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          ) : !data?.kas?.transaksiTerbaru?.length ? (
+            <EmptyState title="Belum ada transaksi" description="Transaksi kas perumahan akan muncul di sini." icon={Wallet} />
+          ) : (
+            data?.kas?.transaksiTerbaru?.map((k: { id: string; jenis: string; kategori: string; jumlah: number; keterangan: string | null; tanggal: string }) => (
+              <div key={k.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent/50">
+                <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${
+                  k.jenis === 'MASUK' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                }`}>
+                  {k.jenis === 'MASUK' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium truncate">{k.kategori}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatTanggal(k.tanggal)}
+                    {k.keterangan && <span className="hidden sm:inline"> · {k.keterangan}</span>}
+                  </div>
+                </div>
+                <div className={`text-sm font-semibold whitespace-nowrap ${
+                  k.jenis === 'MASUK' ? 'text-emerald-600' : 'text-rose-600'
+                }`}>
+                  {k.jenis === 'MASUK' ? '+' : '-'}{formatRupiah(k.jumlah)}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
@@ -316,7 +386,7 @@ function WargaDashboard() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">
-                    {r.jenis === 'SAMPAH' ? 'Iuran Sampah' : r.jenis === 'SOSIAL' ? 'Iuran Sosial' : 'Tabungan Kurban'} — {NAMA_BULAN_SINGKAT[r.bulan - 1]} {r.tahun}
+                    {r.jenis === 'SAMPAH' ? 'Iuran Sampah' : 'Iuran Sosial'} — {NAMA_BULAN_SINGKAT[r.bulan - 1]} {r.tahun}
                   </div>
                   <div className="text-xs text-muted-foreground">{formatTanggal(r.tanggal)}</div>
                 </div>

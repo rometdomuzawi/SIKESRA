@@ -69,14 +69,9 @@ export async function POST(req: NextRequest) {
         where: { bulan: Number(bulan), tahun: Number(tahun), status: 'BELUM_BAYAR' },
         select: { wargaId: true, jumlah: true },
       })
-    } else if (jenis === 'KURBAN') {
-      belumbayar = await db.tabunganKurban.findMany({
-        where: { bulan: Number(bulan), tahun: Number(tahun), status: 'BELUM_BAYAR' },
-        select: { wargaId: true, jumlah: true },
-      })
     }
 
-    const namaJenis = jenis === 'SAMPAH' ? 'Iuran Sampah' : jenis === 'SOSIAL' ? 'Iuran Sosial' : 'Tabungan Kurban'
+    const namaJenis = jenis === 'SAMPAH' ? 'Iuran Sampah' : jenis === 'SOSIAL' ? 'Iuran Sosial' : 'Notifikasi'
     const result = []
     for (const b of belumbayar) {
       const warga = await db.warga.findUnique({ where: { id: b.wargaId } })

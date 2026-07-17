@@ -17,7 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import {
-  MessageCircle, Send, Plus, ExternalLink, Check, Clock, X, Zap, Loader2, Bot,
+  MessageCircle, Send, Plus, ExternalLink, Check, Clock, X, Zap, Loader2, Bot, RotateCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDateTime, NAMA_BULAN } from '@/lib/format'
@@ -28,6 +28,10 @@ interface NotifItem {
   jenis: string
   pesan: string
   status: string
+  providerId?: string | null
+  provider?: string | null
+  attempts?: number
+  errorMessage?: string | null
   tanggalKirim: string
   createdAt: string
   waLink: string | null
@@ -249,6 +253,8 @@ export function NotifikasiView() {
               <SelectItem value="PENDING">Pending</SelectItem>
               <SelectItem value="TERKIRIM">Terkirim</SelectItem>
               <SelectItem value="GAGAL">Gagal</SelectItem>
+              <SelectItem value="DELIVERED">Sampai</SelectItem>
+              <SelectItem value="READ">Dibaca</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
@@ -275,10 +281,23 @@ export function NotifikasiView() {
                         <div className="font-medium text-sm">{n.warga.nama}</div>
                         <StatusBadge status={n.status} />
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        {n.warga.telepon || 'No telepon'} · {formatDateTime(n.createdAt)}
+                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-2 flex-wrap">
+                        <span>{n.warga.telepon || 'No telepon'}</span>
+                        <span>·</span>
+                        <span>{formatDateTime(n.createdAt)}</span>
+                        {n.provider && n.provider !== 'manual' && (
+                          <Badge variant="outline" className="text-[10px] py-0">{n.provider.toUpperCase()}</Badge>
+                        )}
+                        {n.attempts && n.attempts > 0 && (
+                          <span className="text-[10px]">· {n.attempts}x kirim</span>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-3 mb-2 whitespace-pre-line">{n.pesan}</p>
+                      {n.errorMessage && n.status === 'GAGAL' && (
+                        <div className="text-xs text-rose-600 bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 rounded p-2 mb-2">
+                          ⚠️ {n.errorMessage}
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 flex-wrap">
                         {n.waLink && (
                           <Button asChild size="sm" variant="outline" className="h-7 text-xs">
@@ -312,6 +331,28 @@ export function NotifikasiView() {
                               <X className="w-3 h-3 mr-1" /> Gagal
                             </Button>
                           </>
+                        )}
+                        {n.status === 'GAGAL' && waConfigured && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                            disabled={sendApiMut.isPending}
+                            onClick={() => {
+                              // Reset ke PENDING dulu, lalu kirim
+                              updateMut.mutate(
+                                { id: n.id, status: 'PENDING' },
+                                { onSuccess: () => sendApiMut.mutate(n.id) }
+                              )
+                            }}
+                          >
+                            {sendApiMut.isPending && sendApiMut.variables === n.id ? (
+                              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <RotateCw className="w-3 h-3 mr-1" />
+                            )}
+                            Kirim Ulang
+                          </Button>
                         )}
                         <Badge variant="outline" className="text-[10px]">{n.jenis}</Badge>
                       </div>
@@ -352,7 +393,6 @@ export function NotifikasiView() {
                     <SelectItem value="UMUM">Umum</SelectItem>
                     <SelectItem value="SAMPAH">Iuran Sampah</SelectItem>
                     <SelectItem value="SOSIAL">Iuran Sosial</SelectItem>
-                    <SelectItem value="KURBAN">Tabungan Kurban</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -401,7 +441,6 @@ export function NotifikasiView() {
                   <SelectContent>
                     <SelectItem value="SAMPAH">Iuran Sampah</SelectItem>
                     <SelectItem value="SOSIAL">Iuran Sosial</SelectItem>
-                    <SelectItem value="KURBAN">Tabungan Kurban</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -444,6 +483,8 @@ function StatBox({ label, value, color }: { label: string; value: number; color:
 }
 
 function StatusBadge({ status }: { status: string }) {
+  if (status === 'READ') return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100"><Check className="w-3 h-3 mr-1" /> Dibaca</Badge>
+  if (status === 'DELIVERED') return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100"><Check className="w-3 h-3 mr-1" /> Sampai</Badge>
   if (status === 'TERKIRIM') return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100"><Check className="w-3 h-3 mr-1" /> Terkirim</Badge>
   if (status === 'PENDING') return <Badge variant="secondary"><Clock className="w-3 h-3 mr-1" /> Pending</Badge>
   if (status === 'GAGAL') return <Badge variant="destructive"><X className="w-3 h-3 mr-1" /> Gagal</Badge>

@@ -8,7 +8,6 @@ export type PageKey =
   | 'rumah'
   | 'sampah'
   | 'sosial'
-  | 'kurban'
   | 'kas'
   | 'laporan'
   | 'riwayat'
