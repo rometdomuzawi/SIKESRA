@@ -20,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { UserCog, Plus, Pencil, Trash2, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession } from '@/hooks/use-session'
-import { formatTanggal } from '@/lib/format'
+import { formatTanggal, safeResJson } from '@/lib/format'
 
 interface UserItem {
   id: string
@@ -57,8 +57,9 @@ export function UsersView() {
     queryKey: ['users'],
     queryFn: async () => {
       const res = await fetch('/api/users')
-      if (!res.ok) throw new Error('Gagal memuat users')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat users')
+      return data ?? {}
     },
   })
 
@@ -70,8 +71,8 @@ export function UsersView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal menyimpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal menyimpan')
       return d
     },
     onSuccess: () => {
@@ -86,8 +87,8 @@ export function UsersView() {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/users?id=${id}`, { method: 'DELETE' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal hapus')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal hapus')
       return d
     },
     onSuccess: () => {

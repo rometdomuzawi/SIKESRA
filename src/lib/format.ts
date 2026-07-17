@@ -7,6 +7,53 @@ export function formatRupiah(amount: number): string {
   }).format(amount)
 }
 
+/**
+ * Safely parse JSON from a fetch Response.
+ * Returns { ok, data, error } — never throws "Unexpected end of JSON input".
+ *
+ * Use this instead of `await res.json()` in mutation/query handlers
+ * to handle edge cases where the server returns:
+ * - empty body (e.g. 500 from OOM/crash)
+ * - non-JSON response (e.g. HTML error page)
+ * - network errors
+ */
+export async function safeResJson<T = Record<string, unknown>>(
+  res: Response
+): Promise<{ ok: boolean; data: T | null; error: string | null; status: number }> {
+  const status = res.status
+  if (!res.ok) {
+    // Try to parse error body, but don't throw if it fails
+    try {
+      const text = await res.text()
+      if (!text) {
+        return { ok: false, data: null, error: `Server error (${status})`, status }
+      }
+      try {
+        const data = JSON.parse(text) as T
+        const errMsg = (data as { error?: string })?.error || `Server error (${status})`
+        return { ok: false, data, error: errMsg, status }
+      } catch {
+        // Body is not JSON (e.g. HTML error page)
+        return { ok: false, data: null, error: `Server error (${status}): ${text.substring(0, 100)}`, status }
+      }
+    } catch {
+      return { ok: false, data: null, error: `Server error (${status})`, status }
+    }
+  }
+  // Success — parse JSON
+  try {
+    const text = await res.text()
+    if (!text) {
+      return { ok: true, data: null, error: null, status }
+    }
+    const data = JSON.parse(text) as T
+    return { ok: true, data, error: null, status }
+  } catch {
+    // Response was OK but body wasn't valid JSON
+    return { ok: true, data: null, error: null, status }
+  }
+}
+
 export function formatNumber(num: number): string {
   return new Intl.NumberFormat('id-ID').format(num)
 }

@@ -20,7 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Users, Plus, Search, Pencil, Trash2, Home, Phone, MapPin, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession } from '@/hooks/use-session'
-import { formatTanggal } from '@/lib/format'
+import { formatTanggal, safeResJson } from '@/lib/format'
 
 interface WargaItem {
   id: string
@@ -59,8 +59,9 @@ export function WargaView() {
       if (search) params.set('search', search)
       if (blokFilter !== 'all') params.set('blok', blokFilter)
       const res = await fetch(`/api/warga?${params}`)
-      if (!res.ok) throw new Error('Gagal memuat data warga')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat data warga')
+      return data ?? {}
     },
   })
 
@@ -68,8 +69,9 @@ export function WargaView() {
     queryKey: ['rumah'],
     queryFn: async () => {
       const res = await fetch('/api/rumah')
-      if (!res.ok) throw new Error('Gagal memuat rumah')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat rumah')
+      return data ?? {}
     },
   })
 
@@ -85,8 +87,8 @@ export function WargaView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal menambah')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal menambah')
       return d
     },
     onSuccess: () => {
@@ -105,8 +107,8 @@ export function WargaView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal update')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal update')
       return d
     },
     onSuccess: () => {
@@ -121,8 +123,8 @@ export function WargaView() {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/warga?id=${id}`, { method: 'DELETE' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal hapus')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal hapus')
       return d
     },
     onSuccess: () => {
@@ -439,8 +441,9 @@ export function RumahView() {
     queryKey: ['rumah'],
     queryFn: async () => {
       const res = await fetch('/api/rumah')
-      if (!res.ok) throw new Error('Gagal memuat rumah')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat rumah')
+      return data ?? {}
     },
   })
 
@@ -452,8 +455,8 @@ export function RumahView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal menyimpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal menyimpan')
       return d
     },
     onSuccess: () => {
@@ -468,8 +471,8 @@ export function RumahView() {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/rumah?id=${id}`, { method: 'DELETE' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal hapus')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal hapus')
       return d
     },
     onSuccess: () => {

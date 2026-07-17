@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Printer, FileText, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import { useSession } from '@/hooks/use-session'
-import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN } from '@/lib/format'
+import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN, safeResJson } from '@/lib/format'
 
 export function LaporanView() {
   const { data: session } = useSession()
@@ -27,8 +27,9 @@ export function LaporanView() {
     queryKey: ['laporan', bulan, tahun],
     queryFn: async () => {
       const res = await fetch(`/api/laporan?bulan=${bulan}&tahun=${tahun}`)
-      if (!res.ok) throw new Error('Gagal memuat laporan')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat laporan')
+      return data ?? {}
     },
   })
 

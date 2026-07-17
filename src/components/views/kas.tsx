@@ -20,7 +20,7 @@ import {
   ArrowUpRight, ArrowDownRight, Plus, Pencil, Trash2, Wallet,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatRupiah, formatTanggal } from '@/lib/format'
+import { formatRupiah, formatTanggal, safeResJson } from '@/lib/format'
 
 interface KasItem {
   id: string
@@ -48,8 +48,9 @@ export function KasView() {
       const params = new URLSearchParams()
       if (jenisFilter !== 'all') params.set('jenis', jenisFilter)
       const res = await fetch(`/api/kas?${params}`)
-      if (!res.ok) throw new Error('Gagal memuat kas')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat kas')
+      return data ?? {}
     },
   })
 
@@ -61,8 +62,8 @@ export function KasView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal menyimpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal menyimpan')
       return d
     },
     onSuccess: () => {
@@ -79,8 +80,8 @@ export function KasView() {
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/kas?id=${id}`, { method: 'DELETE' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal hapus')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal hapus')
       return d
     },
     onSuccess: () => {

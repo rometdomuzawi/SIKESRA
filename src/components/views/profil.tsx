@@ -13,6 +13,7 @@ import { useSession } from '@/hooks/use-session'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/nav'
 import { Mail, Phone, Home, User, Lock, Save, Shield } from 'lucide-react'
 import { toast } from 'sonner'
+import { safeResJson } from '@/lib/format'
 
 export function ProfilView() {
   const { data: sessionData } = useSession()
@@ -35,8 +36,8 @@ export function ProfilView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal update profil')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal update profil')
       return d
     },
     onSuccess: () => {

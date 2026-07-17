@@ -19,7 +19,7 @@ import {
 import { Search, Plus, Check, X, Trash2, Coins, Zap, Sparkles, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession } from '@/hooks/use-session'
-import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN } from '@/lib/format'
+import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN, safeResJson } from '@/lib/format'
 import type { LucideIcon } from 'lucide-react'
 
 interface IuranItem {
@@ -77,8 +77,9 @@ export function IuranView({
       if (statusFilter !== 'all') params.set('status', statusFilter)
       if (search) params.set('search', search)
       const res = await fetch(`${apiPath}?${params}`)
-      if (!res.ok) throw new Error('Gagal memuat data')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat data')
+      return data ?? {}
     },
   })
 
@@ -96,9 +97,9 @@ export function IuranView({
   const createMut = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch(apiPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal menambah')
-      return d
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal menambah')
+      return data
     },
     onSuccess: (_d, vars) => {
       toast.success(vars.bulk ? `${vars.bulk ? 'Bulk generate selesai' : 'Iuran dibuat'}` : 'Iuran dibuat')
@@ -115,9 +116,9 @@ export function IuranView({
   const updateMut = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch(apiPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal update')
-      return d
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal update')
+      return data
     },
     onSuccess: () => {
       toast.success('Status pembayaran diperbarui')
@@ -133,9 +134,9 @@ export function IuranView({
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`${apiPath}?id=${id}`, { method: 'DELETE' })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal hapus')
-      return d
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal hapus')
+      return data
     },
     onSuccess: () => {
       toast.success('Data iuran dihapus')

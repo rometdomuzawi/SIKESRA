@@ -16,7 +16,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell,
 } from 'recharts'
-import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN_SINGKAT } from '@/lib/format'
+import { formatRupiah, formatTanggal, namaBulan, NAMA_BULAN_SINGKAT, safeResJson } from '@/lib/format'
 import { useApp } from '@/lib/store'
 
 export function DashboardView() {
@@ -28,8 +28,9 @@ export function DashboardView() {
     queryKey: ['dashboard'],
     queryFn: async () => {
       const res = await fetch('/api/dashboard')
-      if (!res.ok) throw new Error('Gagal memuat dashboard')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat dashboard')
+      return data ?? {}
     },
   })
 
@@ -255,8 +256,9 @@ function WargaDashboard() {
     queryKey: ['dashboard-warga'],
     queryFn: async () => {
       const res = await fetch('/api/dashboard')
-      if (!res.ok) throw new Error('Gagal memuat')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat')
+      return data ?? {}
     },
   })
   const { setPage } = useApp()

@@ -20,7 +20,7 @@ import {
   MessageCircle, Send, Plus, ExternalLink, Check, Clock, X, Zap, Loader2, Bot, RotateCw,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDateTime, NAMA_BULAN } from '@/lib/format'
+import { formatDateTime, NAMA_BULAN, safeResJson } from '@/lib/format'
 
 interface NotifItem {
   id: string
@@ -51,8 +51,9 @@ export function NotifikasiView() {
       const params = new URLSearchParams()
       if (statusFilter !== 'all') params.set('status', statusFilter)
       const res = await fetch(`/api/notifikasi?${params}`)
-      if (!res.ok) throw new Error('Gagal memuat notifikasi')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat notifikasi')
+      return data ?? {}
     },
   })
 
@@ -61,8 +62,9 @@ export function NotifikasiView() {
     queryKey: ['wa-status'],
     queryFn: async () => {
       const res = await fetch('/api/notifikasi/status')
-      if (!res.ok) throw new Error('Gagal cek status WA')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal cek status WA')
+      return data ?? {}
     },
   })
 
@@ -83,8 +85,8 @@ export function NotifikasiView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal membuat')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal membuat')
       return d
     },
     onSuccess: (_d, vars) => {
@@ -104,8 +106,8 @@ export function NotifikasiView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal update')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal update')
       return d
     },
     onSuccess: () => {
@@ -124,8 +126,8 @@ export function NotifikasiView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id }),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal kirim WA')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal kirim WA')
       return d
     },
     onSuccess: () => {
@@ -144,8 +146,8 @@ export function NotifikasiView() {
         headers.Authorization = `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET}`
       }
       const res = await fetch('/api/cron/wa-broadcast', { headers })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal trigger broadcast')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal trigger broadcast')
       return d
     },
     onSuccess: (d) => {

@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { History, Search, ArrowUpRight, Calendar, Wallet } from 'lucide-react'
 import { useSession } from '@/hooks/use-session'
-import { formatRupiah, formatTanggal, NAMA_BULAN, namaBulan, NAMA_BULAN_SINGKAT } from '@/lib/format'
+import { formatRupiah, formatTanggal, NAMA_BULAN, namaBulan, NAMA_BULAN_SINGKAT, safeResJson } from '@/lib/format'
 
 export function RiwayatView() {
   const { data: session } = useSession()
@@ -34,8 +34,9 @@ export function RiwayatView() {
     queryKey: ['riwayat', jenisFilter, search, from, to],
     queryFn: async () => {
       const res = await fetch(`/api/riwayat?${params}`)
-      if (!res.ok) throw new Error('Gagal memuat riwayat')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat riwayat')
+      return data ?? {}
     },
   })
 

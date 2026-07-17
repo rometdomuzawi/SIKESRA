@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { safeResJson } from '@/lib/format'
 
 export interface SessionUser {
   id: string
@@ -27,8 +28,9 @@ export function useSession() {
     queryKey: ['session'],
     queryFn: async () => {
       const res = await fetch('/api/auth/me')
-      if (!res.ok) throw new Error('Failed to fetch session')
-      return res.json()
+      const { ok, data, error } = await safeResJson<SessionData>(res)
+      if (!ok) throw new Error(error || 'Failed to fetch session')
+      return data ?? { user: null, warga: null }
     },
     staleTime: 60_000,
     retry: 1,
@@ -44,8 +46,8 @@ export function useLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Login gagal')
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Login gagal')
       return data
     },
     onSuccess: () => {

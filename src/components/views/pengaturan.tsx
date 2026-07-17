@@ -18,6 +18,7 @@ import {
   Settings, MessageCircle, FileText, ShieldCheck, Bot, CheckCircle2, XCircle, Loader2, TestTube, Save, AlertCircle, Send,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { safeResJson } from '@/lib/format'
 
 // ===================== MAIN =====================
 export function PengaturanView() {
@@ -45,8 +46,9 @@ function PengaturanUmum() {
     queryKey: ['pengaturan'],
     queryFn: async () => {
       const res = await fetch('/api/pengaturan')
-      if (!res.ok) throw new Error('Gagal memuat pengaturan')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat pengaturan')
+      return data ?? {}
     },
   })
 
@@ -57,8 +59,8 @@ function PengaturanUmum() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal simpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal simpan')
       return d
     },
     onSuccess: () => {
@@ -152,8 +154,9 @@ function WhatsAppConfig() {
     queryKey: ['wa-config'],
     queryFn: async () => {
       const res = await fetch('/api/pengaturan/wa')
-      if (!res.ok) throw new Error('Gagal memuat config WA')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat config WA')
+      return data ?? {}
     },
   })
 
@@ -169,8 +172,8 @@ function WhatsAppConfig() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal simpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal simpan')
       return d
     },
     onSuccess: () => {
@@ -215,8 +218,8 @@ function WhatsAppConfig() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone }),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal kirim test')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal kirim test')
       return d
     },
     onSuccess: () => toast.success('Pesan test terkirim! Cek WhatsApp Anda.'),
@@ -454,8 +457,9 @@ function TemplateEditor() {
     queryKey: ['template'],
     queryFn: async () => {
       const res = await fetch('/api/pengaturan/template')
-      if (!res.ok) throw new Error('Gagal memuat template')
-      return res.json()
+      const { ok, data, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal memuat template')
+      return data ?? {}
     },
   })
 
@@ -471,8 +475,8 @@ function TemplateEditor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      const d = await res.json()
-      if (!res.ok) throw new Error(d.error || 'Gagal simpan')
+      const { ok, data: d, error } = await safeResJson(res)
+      if (!ok) throw new Error(error || 'Gagal simpan')
       return d
     },
     onSuccess: () => {
